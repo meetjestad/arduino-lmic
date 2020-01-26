@@ -10,6 +10,16 @@
  *******************************************************************************/
 
 #include "lmic.h"
+#include <stdbool.h>
+
+// Output definitions of inline functions
+extern inline u1_t table_get_u1(const u1_t *table, size_t index);
+extern inline s1_t table_get_s1(const s1_t *table, size_t index);
+extern inline u2_t table_get_u2(const u2_t *table, size_t index);
+extern inline s2_t table_get_s2(const s2_t *table, size_t index);
+extern inline u4_t table_get_u4(const u4_t *table, size_t index);
+extern inline s4_t table_get_s4(const s4_t *table, size_t index);
+extern inline ostime_t table_get_ostime(const ostime_t *table, size_t index);
 
 // RUNTIME STATE
 static struct {
@@ -100,6 +110,9 @@ void os_runloop () {
 }
 
 void os_runloop_once() {
+    #if LMIC_DEBUG_LEVEL > 1
+        bool has_deadline = false;
+    #endif
     osjob_t* j = NULL;
     hal_disableIRQs();
     // check for runnable jobs
@@ -109,13 +122,16 @@ void os_runloop_once() {
     } else if(OS.scheduledjobs && hal_checkTimer(OS.scheduledjobs->deadline)) { // check for expired timed jobs
         j = OS.scheduledjobs;
         OS.scheduledjobs = j->next;
+        #if LMIC_DEBUG_LEVEL > 1
+            has_deadline = true;
+        #endif
     } else { // nothing pending
         hal_sleep(); // wake by irq (timer already restarted)
     }
     hal_enableIRQs();
     if(j) { // run job callback
         #if LMIC_DEBUG_LEVEL > 1
-            lmic_printf("%lu: Running job %p, cb %p, deadline %lu\n", os_getTime(), j, j->func, is_runnable ? 0 : j->deadline);
+            lmic_printf("%lu: Running job %p, cb %p, deadline %lu\n", os_getTime(), j, j->func, has_deadline ? j->deadline : 0);
         #endif
         j->func(j);
     }
